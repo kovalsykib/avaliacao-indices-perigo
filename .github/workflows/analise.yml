@@ -1,1 +1,78 @@
+name: Rodar análise
 
+on:
+  push:
+    paths:
+      - "dados/**"
+      - "config.yaml"
+      - "src/**"
+      - "rodar.py"
+  workflow_dispatch:
+    inputs:
+      exemplo:
+        description: "Rodar com os dados SIMULADOS de exemplo (para testar)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: analise
+  cancel-in-progress: false
+
+jobs:
+  analise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar bibliotecas
+        run: pip install -r requirements.txt
+
+      - name: Recuperar arquivos já baixados (INPE)
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: cache-${{ github.run_id }}
+          restore-keys: cache-
+
+      - name: Rodar a análise
+        run: |
+          if [ "${{ inputs.exemplo }}" = "true" ]; then
+            python exemplo/gerar_dados_exemplo.py
+            python rodar.py exemplo/config_exemplo.yaml
+          else
+            python rodar.py config.yaml
+          fi
+
+      - name: Publicar os resultados no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A resultados resultados_exemplo 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nenhuma mudança nos resultados."
+          else
+            git commit -m "Atualiza resultados da análise [skip ci]"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Guardar os resultados para download
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados
+          path: |
+            resultados
+            resultados_exemplo
+          if-no-files-found: ignore
