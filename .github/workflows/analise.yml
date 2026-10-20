@@ -7,6 +7,7 @@ on:
       - "config.yaml"
       - "src/**"
       - "rodar.py"
+      - "app/**"
   workflow_dispatch:
     inputs:
       exemplo:
@@ -16,6 +17,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: analise
@@ -46,6 +49,8 @@ jobs:
           restore-keys: cache-
 
       - name: Rodar a análise
+        continue-on-error: true
+        id: analise
         run: |
           if [ "${{ inputs.exemplo }}" = "true" ]; then
             python exemplo/gerar_dados_exemplo.py
@@ -53,6 +58,12 @@ jobs:
           else
             python rodar.py config.yaml
           fi
+
+      - name: Avisar se a análise não rodou
+        if: steps.analise.outcome == 'failure'
+        run: |
+          echo "::warning::A análise com os dados de dados/ não rodou (faltam arquivos ou há erro). Abra a etapa 'Rodar a análise' para ver a mensagem. A calculadora on-line continua sendo publicada."
+          echo "### ⚠️ A análise não rodou – veja a etapa 'Rodar a análise'. A calculadora foi publicada normalmente." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar os resultados no repositório
         run: |
@@ -76,3 +87,27 @@ jobs:
             resultados
             resultados_exemplo
           if-no-files-found: ignore
+
+      - name: Montar o site (calculadora + últimos resultados)
+        run: |
+          if [ "${{ inputs.exemplo }}" = "true" ]; then ORIGEM=resultados_exemplo; else ORIGEM=resultados; fi
+          if [ ! -f "$ORIGEM/index.html" ]; then
+            for d in resultados resultados_exemplo; do [ -f "$d/index.html" ] && ORIGEM=$d && break; done
+          fi
+          bash app/montar_site.sh _site "$ORIGEM"
+
+      - name: Preparar a página para publicação
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  pagina:
+    needs: analise
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicar.outputs.page_url }}
+    steps:
+      - name: Publicar a página (GitHub Pages)
+        id: publicar
+        uses: actions/deploy-pages@v4
