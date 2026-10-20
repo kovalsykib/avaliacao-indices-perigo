@@ -1,0 +1,117 @@
+# =============================================================================
+# Configuração da análise com os DADOS REAIS
+# Edite este arquivo para que os nomes de arquivos e colunas batam com os seus.
+# Caminhos relativos são contados a partir da pasta deste arquivo (raiz do repositório).
+# Cada vez que este arquivo ou algo em dados/ muda, o GitHub roda a análise.
+# =============================================================================
+
+periodo:
+  inicio: 2025-08-01
+  fim: 2025-09-30
+
+grade:
+  resolucao: 0.25          # graus; todos os índices são agregados para esta grade
+
+somente_dias_comuns: true  # usa só os dias em que TODOS os índices têm dado
+cache: cache               # onde ficam os arquivos baixados automaticamente
+
+# ----------------------------------------------------------------------------
+# Regiões (limite do Paraguai). Coloque o arquivo em dados/regioes/.
+# Exemplo com os departamentos do GADM (gadm41_PRY_1.json, campo NAME_1):
+# ----------------------------------------------------------------------------
+regioes:
+  arquivo: dados/regioes/*.json        # aceita .shp, .gpkg, .geojson, .json
+  # camada: ADM_ADM_1                  # só para GeoPackage com várias camadas
+  campo: NAME_1
+  nome_total: Paraguai
+  agrupar:
+    Chaco: [Alto Paraguay, Boquerón, Presidente Hayes]
+  demais: Oriental
+
+# ----------------------------------------------------------------------------
+# Focos de calor (CSV do BDQueimadas). Coloque em dados/focos/.
+# Confira os nomes das colunas no seu CSV e ajuste abaixo.
+# ----------------------------------------------------------------------------
+focos:
+  arquivo: dados/focos/*.csv
+  separador: ","
+  coluna_data: data_hora_gmt      # em versões antigas do BDQueimadas: DataHora
+  # formato_data: "%Y/%m/%d %H:%M:%S"   # deixe comentado para detectar sozinho
+  # coluna_hora: acq_time         # só para CSV do FIRMS (acq_date + acq_time)
+  coluna_lat: lat                 # versões antigas: Latitude
+  coluna_lon: lon                 # versões antigas: Longitude
+  fuso_horas: -3                  # BDQueimadas e FIRMS estão em UTC; Paraguai = UTC-3
+  filtro:
+    satelite: AQUA_M-T            # satélite de referência (nome da coluna como no CSV)
+  min_focos_celula: 1             # célula-dia "com fogo" se tiver >= este nº de focos
+
+# ----------------------------------------------------------------------------
+# Índices. {data} = AAAAMMDD; também {ano}, {mes}, {dia}, {doy}; aceita *.
+# classes_comuns: como cada classe própria entra nas 3 classes da comparação (c).
+# ----------------------------------------------------------------------------
+indices:
+  # Índice proposto – GeoTIFFs exportados do Google Earth Engine, um por dia,
+  # com o código da classe (1 = Baixo ... 4 = Alto). Coloque em dados/indice_proposto/.
+  - nome: Índice proposto
+    arquivos: dados/indice_proposto/indice_{data}.tif
+    tipo: classes
+    codigos: [1, 2, 3, 4]
+    rotulos: [Baixo, Leve, Moderado, Alto]
+    classe_alta_a_partir_de: Alto
+    classes_comuns: {Baixo: [Baixo, Leve], Moderado: [Moderado], Alto: [Alto]}
+    # Se o GEE exportar o VALOR contínuo do índice, troque por:
+    # tipo: continuo
+    # limites: [1.5, 2.5, 3.5]     # limites entre Baixo|Leve|Moderado|Alto
+
+  # RF do INPE – se não houver arquivo em dados/inpe/, é BAIXADO automaticamente
+  # do dataserver do INPE e recortado para o Paraguai.
+  - nome: RF INPE
+    arquivos: dados/inpe/INPE_FireRiskModel_*_FireRisk_{data}.nc
+    download: https://dataserver-coids.inpe.br/queimadas/queimadas/riscofogo_meteorologia/observado/risco_fogo/{ano}/INPE_FireRiskModel_2.2_FireRisk_{data}.nc
+    # variavel: rf                 # deixe comentado para usar a 1ª variável do arquivo
+    tipo: continuo
+    limites: [0.15, 0.40, 0.70, 0.95]
+    rotulos: [Mínimo, Baixo, Médio, Alto, Crítico]
+    classe_alta_a_partir_de: Alto
+    classes_comuns: {Baixo: [Mínimo, Baixo], Moderado: [Médio], Alto: [Alto, Crítico]}
+
+  # FWI do GWIS/CEMS (reanálise ERA5, baixado do EWDS do Copernicus) em RANKING:
+  # cada dia é comparado aos percentis do próprio pixel na climatologia.
+  - nome: FWI GWIS (ranking)
+    arquivos: dados/gwis/*.nc                 # pode ser 1 arquivo com todos os dias
+    variavel: fwinx                           # confira o nome no arquivo baixado
+    tipo: percentil
+    climatologia: dados/gwis/climatologia/*.nc
+    meses_climatologia: [8, 9]
+    limites_percentis: [50, 90]
+    rotulos: [abaixo de P50, P50 a P90, acima de P90]
+    classe_alta_a_partir_de: acima de P90
+    classes_comuns: {Baixo: [abaixo de P50], Moderado: [P50 a P90], Alto: [acima de P90]}
+
+  # Opcional: o mesmo FWI com as classes absolutas do GWIS (calibradas na Europa).
+  # Descomente para incluir também na análise (a).
+  # - nome: FWI GWIS (classes absolutas)
+  #   arquivos: dados/gwis/*.nc
+  #   variavel: fwinx
+  #   tipo: continuo
+  #   limites: [11.2, 21.3, 38.0, 50.0, 70.0]
+  #   rotulos: [Baixo, Moderado, Alto, Muito alto, Extremo, Muito extremo]
+  #   classe_alta_a_partir_de: Muito alto
+
+# ----------------------------------------------------------------------------
+# (c) Comparação espacial
+# ----------------------------------------------------------------------------
+comparacao_espacial:
+  classes: [Baixo, Moderado, Alto]
+  referencia: Índice proposto   # pares: referência × cada um dos outros
+  datas: automatico             # ou uma lista: [2025-08-01, 2025-08-30, ...]
+  regiao_selecao: Paraguai      # série de focos usada para escolher as datas
+  por_mes: true                 # escolher as datas dentro de cada mês
+  n_por_grupo: 2                # nº de datas de maiores e de menores registros (por mês)
+  percentil_alto: 90
+  percentil_baixo: 10
+  intervalo_minimo_dias: 3      # evita escolher dias consecutivos
+  kappa_pesos: linear           # linear, quadratico ou nenhum
+
+saida:
+  pasta: resultados

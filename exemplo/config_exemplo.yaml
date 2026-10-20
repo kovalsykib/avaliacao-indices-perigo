@@ -1,0 +1,67 @@
+# Configuração de EXEMPLO (dados simulados). Caminhos relativos a esta pasta.
+# Gere os dados antes:  python exemplo/gerar_dados_exemplo.py
+
+aviso_relatorio: "EXEMPLO COM DADOS SIMULADOS – os números não são reais."
+
+periodo: {inicio: 2025-08-01, fim: 2025-09-30}
+grade: {resolucao: 0.25}
+somente_dias_comuns: true
+cache: ../cache_exemplo
+
+regioes:
+  arquivo: dados/regioes_simuladas.geojson
+  campo: regiao
+  nome_total: Paraguai
+
+focos:
+  arquivo: dados/focos/*.csv
+  coluna_data: DataHora
+  formato_data: "%Y/%m/%d %H:%M:%S"
+  coluna_lat: Latitude
+  coluna_lon: Longitude
+  fuso_horas: -3
+  filtro: {Satelite: AQUA_M-T}
+  min_focos_celula: 1
+
+indices:
+  - nome: Índice proposto
+    arquivos: dados/indice_proposto/indice_{data}.tif
+    tipo: classes
+    codigos: [1, 2, 3, 4]
+    rotulos: [Baixo, Leve, Moderado, Alto]
+    classe_alta_a_partir_de: Alto
+    classes_comuns: {Baixo: [Baixo, Leve], Moderado: [Moderado], Alto: [Alto]}
+
+  - nome: RF INPE
+    arquivos: dados/inpe/INPE_FireRiskModel_2.2_FireRisk_{data}.nc
+    variavel: rf
+    tipo: continuo
+    limites: [0.15, 0.40, 0.70, 0.95]
+    rotulos: [Mínimo, Baixo, Médio, Alto, Crítico]
+    classe_alta_a_partir_de: Alto
+    classes_comuns: {Baixo: [Mínimo, Baixo], Moderado: [Médio], Alto: [Alto, Crítico]}
+
+  - nome: FWI GWIS (ranking)
+    arquivos: dados/gwis/fwi_ago_set_2025.nc
+    variavel: fwinx
+    tipo: percentil
+    climatologia: dados/gwis/climatologia/*.nc
+    meses_climatologia: [8, 9]
+    limites_percentis: [50, 90]
+    rotulos: [abaixo de P50, P50 a P90, acima de P90]
+    classe_alta_a_partir_de: acima de P90
+    classes_comuns: {Baixo: [abaixo de P50], Moderado: [P50 a P90], Alto: [acima de P90]}
+
+comparacao_espacial:
+  classes: [Baixo, Moderado, Alto]
+  referencia: Índice proposto
+  datas: automatico
+  regiao_selecao: Paraguai
+  por_mes: true
+  n_por_grupo: 2
+  percentil_alto: 90
+  percentil_baixo: 10
+  intervalo_minimo_dias: 3
+  kappa_pesos: linear
+
+saida: {pasta: ../resultados_exemplo}
