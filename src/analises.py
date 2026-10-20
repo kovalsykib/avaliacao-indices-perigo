@@ -247,3 +247,60 @@ def concordancia(datas, indices, comuns, mascaras, nomes_comuns, referencia, pes
                     lin["total da linha"] = int(mat[i].sum())
                     matrizes.append(lin)
     return pd.DataFrame(linhas), pd.DataFrame(matrizes)
+
+
+def concordancia_diaria(dias, indices, comuns, mascaras, nomes_comuns, referencia, pesos, serie, regiao_grupos):
+    """Concordância espacial (classes comuns) em TODOS os dias válidos, com os dias
+    separados em terços pela série de focos (baixa / média / alta atividade)."""
+    k = len(nomes_comuns)
+    ref = next(i for i in indices if i.nome == referencia)
+    outros = [i for i in indices if i.nome != referencia and i.mapa_comum is not None]
+    s = serie[serie["região"] == regiao_grupos].set_index("data")["focos"]
+    s = s[[d.date() for d in dias if d.date() in s.index]]
+    q1, q2 = np.percentile(s.values, [100 / 3, 200 / 3]) if len(s) else (np.nan, np.nan)
+
+    def grupo(n):
+        return "baixa atividade" if n <= q1 else ("média atividade" if n <= q2 else "alta atividade")
+
+    linhas, mats = [], {}
+    for reg, m in mascaras.items():
+        for o in outros:
+            for d in dias:
+                a, b = comuns[ref.nome].get(d), comuns[o.nome].get(d)
+                if a is None or b is None:
+                    continue
+                ok = m & (a >= 0) & (b >= 0)
+                mat = np.zeros((k, k))
+                np.add.at(mat, (a[ok], b[ok]), 1)
+                pc, k0, kw = kappa_ponderado(mat, pesos)
+                g = grupo(s.get(d.date(), np.nan))
+                linhas.append({"região": reg, "data": str(d.date()), "par": f"{ref.nome} × {o.nome}",
+                               "focos (série de seleção)": int(s.get(d.date(), 0)), "grupo de atividade": g,
+                               "células": int(mat.sum()), "% concordância": pc, "Kappa": k0,
+                               f"Kappa ponderado ({pesos})": kw})
+                for chave in ((reg, o.nome, g), (reg, o.nome, "todos os dias")):
+                    mats[chave] = mats.get(chave, 0) + mat
+    diaria = pd.DataFrame(linhas)
+    kcol = f"Kappa ponderado ({pesos})"
+    resumo = []
+    ordem = ["baixa atividade", "média atividade", "alta atividade", "todos os dias"]
+    if len(diaria):
+        for (reg, par), g in diaria.groupby(["região", "par"], sort=False):
+            for grp in ordem:
+                gg = g if grp == "todos os dias" else g[g["grupo de atividade"] == grp]
+                if not len(gg):
+                    continue
+                outro = par.split(" × ", 1)[1]
+                pc_ag, _, kw_ag = kappa_ponderado(mats[(reg, outro, grp)], pesos)
+                resumo.append({"região": reg, "par": par, "grupo de atividade": grp, "dias": len(gg),
+                               "focos: mín–máx": f"{gg['focos (série de seleção)'].min()}–{gg['focos (série de seleção)'].max()}",
+                               "% concordância (mediana)": gg["% concordância"].median(),
+                               f"{kcol} – mediana": gg[kcol].median(),
+                               f"{kcol} – P25": gg[kcol].quantile(.25),
+                               f"{kcol} – P75": gg[kcol].quantile(.75),
+                               f"{kcol} – mín": gg[kcol].min(), f"{kcol} – máx": gg[kcol].max(),
+                               "% concordância (todos os pixels-dia)": pc_ag,
+                               f"{kcol} (todos os pixels-dia)": kw_ag})
+    resumo = pd.DataFrame(resumo)
+    resumo.attrs["limites"] = (q1, q2)
+    return diaria, resumo

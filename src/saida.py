@@ -66,7 +66,7 @@ def grafico_series_focos(serie, indices, mascaras, pasta):
     return arqs
 
 
-def grafico_razao(classe, indices, regiao, pasta):
+def grafico_razao(classe, indices, regiao, pasta, nome_arquivo="a_razao_por_classe.png"):
     c = classe[classe["região"] == regiao]
     fig, axs = plt.subplots(1, len(indices), figsize=(4.2 * len(indices), 4), squeeze=False)
     for ax, ind in zip(axs[0], indices):
@@ -78,7 +78,7 @@ def grafico_razao(classe, indices, regiao, pasta):
         ax.tick_params(axis="x", rotation=45, labelsize=8)
     fig.suptitle(f"Concentração de focos por classe de perigo – {regiao} (linha tracejada = 1)")
     fig.tight_layout()
-    nome = pasta / "a_razao_por_classe.png"
+    nome = pasta / nome_arquivo
     fig.savefig(nome, dpi=170)
     plt.close(fig)
     return nome
@@ -106,6 +106,47 @@ def grafico_comparacao_temporal(serie, indices, mascaras, nome_alto, pasta):
     fig.autofmt_xdate()
     fig.tight_layout()
     nome = pasta / "b_comparacao_temporal.png"
+    fig.savefig(nome, dpi=170)
+    plt.close(fig)
+    return nome
+
+
+def grafico_concordancia_diaria(diaria, regiao, pasta):
+    """Série diária do Kappa ponderado por par + boxplot por grupo de atividade."""
+    d = diaria[diaria["região"] == regiao]
+    if not len(d):
+        return None
+    kcol = [c for c in d.columns if c.startswith("Kappa ponderado")][0]
+    pares = list(d["par"].unique())
+    grupos = ["baixa atividade", "média atividade", "alta atividade"]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.4), gridspec_kw={"width_ratios": [2.2, 1]})
+    for cor, par in zip(CORES_LINHAS[1:], pares):
+        dp = d[d["par"] == par]
+        ax1.plot(pd.to_datetime(dp["data"]), dp[kcol], lw=1.6, color=cor, label=par)
+    ax1.axhline(0, color="k", lw=0.6)
+    ax1.set_ylabel(kcol)
+    ax1.set_title(f"Concordância espacial diária – {regiao}", fontsize=10, loc="left")
+    ax1.legend(fontsize=8, frameon=False)
+    ax1.grid(alpha=0.3)
+    larg = 0.8 / max(len(pares), 1)
+    for j, (cor, par) in enumerate(zip(CORES_LINHAS[1:], pares)):
+        dados = [d[(d["par"] == par) & (d["grupo de atividade"] == g)][kcol].dropna().values for g in grupos]
+        pos = np.arange(len(grupos)) + (j - (len(pares) - 1) / 2) * larg
+        bp = ax2.boxplot(dados, positions=pos, widths=larg * 0.9, patch_artist=True, showfliers=True)
+        for caixa in bp["boxes"]:
+            caixa.set_facecolor(cor)
+            caixa.set_alpha(0.55)
+        for med in bp["medians"]:
+            med.set_color("k")
+    ax2.set_xticks(range(len(grupos)))
+    ax2.set_xticklabels(["baixa", "média", "alta"])
+    ax2.set_xlabel("atividade de fogo (terços da série de focos)")
+    ax2.axhline(0, color="k", lw=0.6)
+    ax2.set_title("Por nível de atividade de fogo", fontsize=10, loc="left")
+    ax2.grid(alpha=0.3, axis="y")
+    plt.setp(ax1.get_xticklabels(), rotation=30, ha="right")
+    fig.tight_layout()
+    nome = pasta / f"c_concordancia_diaria_{slug(regiao)}.png"
     fig.savefig(nome, dpi=170)
     plt.close(fig)
     return nome
@@ -216,10 +257,22 @@ def relatorio(pasta, ctx):
         d2 = ds.copy()
         d2["data"] = pd.to_datetime(d2["data"]).dt.strftime("%d/%m/%Y")
         p.append(tabela_md(d2, ["data", "grupo", "focos", "percentil na série", "atende ao percentil"]))
+        cres = ctx.get("conc_resumo")
+        if cres is not None and len(cres):
+            reg0 = cres["região"].iloc[0]
+            q1, q2 = cres.attrs.get("limites", (np.nan, np.nan))
+            p.append(f"\n### Concordância em todos os dias ({reg0})\n")
+            p.append(f"Dias separados em terços pela série de focos: baixa ≤ {q1:.0f} focos, "
+                     f"média ≤ {q2:.0f}, alta > {q2:.0f}.\n\n")
+            kc = [c for c in cres.columns if c.endswith("– mediana") and c.startswith("Kappa")][0]
+            p.append(tabela_md(cres[cres["região"] == reg0],
+                               ["par", "grupo de atividade", "dias", "% concordância (mediana)", kc]))
+            if ctx.get("img_conc_diaria"):
+                p.append(f"\n![concordância diária]({ctx['img_conc_diaria'].name})\n")
         conc = ctx["concordancia"]
         if len(conc):
             regiao0 = conc["região"].iloc[0]
-            p.append(f"\n### Concordância ({regiao0})\n")
+            p.append(f"\n### Concordância nas datas ilustrativas ({regiao0})\n")
             kcol = [c for c in conc.columns if c.startswith("Kappa ponderado")][0]
             c2 = conc[conc["região"] == regiao0].copy()
             c2["data"] = c2["data"].astype(str)

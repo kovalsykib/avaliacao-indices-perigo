@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de índices de perigo</title>
+<meta name="description" content="Avalia índices de perigo de incêndio contra focos de calor e compara os índices entre si, direto no navegador.">
+<style>
+:root{
+  --bg:#f6f5f0; --surface:#fff; --surface-2:#efeee7; --text:#1c1e1b; --muted:#60655d; --line:#dcdbd1;
+  --accent:#b4441c; --accent-ink:#fff; --accent-soft:#f7e4da; --ok:#2e7d4f; --ok-soft:#e1f1e7;
+  --err:#b3261e; --err-soft:#fbe4e2; --warn:#8a5d00; --warn-soft:#fbf1d3; --focus:#1f6feb;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.04); --r:12px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141513; --surface:#1d1f1c; --surface-2:#262823; --text:#ecece5; --muted:#a5aaa0; --line:#363932;
+    --accent:#ec8a5e; --accent-ink:#1a0d06; --accent-soft:#3a2519; --ok:#71c393; --ok-soft:#1d3226;
+    --err:#f08b84; --err-soft:#3c1f1d; --warn:#e3b54a; --warn-soft:#3a3018; --focus:#6ea8ff; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141513; --surface:#1d1f1c; --surface-2:#262823; --text:#ecece5; --muted:#a5aaa0; --line:#363932;
+  --accent:#ec8a5e; --accent-ink:#1a0d06; --accent-soft:#3a2519; --ok:#71c393; --ok-soft:#1d3226;
+  --err:#f08b84; --err-soft:#3c1f1d; --warn:#e3b54a; --warn-soft:#3a3018; --focus:#6ea8ff; --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 60px}
+header{padding:30px 0 10px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between}
+h1{font-size:clamp(1.4rem,3vw,2rem);margin:0;letter-spacing:-.015em}
+.sub{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.status{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);
+  border-radius:999px;padding:6px 12px;font-size:.88rem;color:var(--muted)}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--warn);display:inline-block}
+.status.pronto i{background:var(--ok)} .status.erro i{background:var(--err)}
+.status.ocupado i{animation:pulsar 1s infinite alternate}
+@keyframes pulsar{to{opacity:.25}}
+.intro{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 6px}
+.passo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  margin:16px 0;padding:18px}
+.passo>h2{display:flex;gap:10px;align-items:center;font-size:1.1rem;margin:0 0 4px}
+.passo>h2 .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:.9rem}
+.passo>p.nota{margin:0 0 12px 38px}
+p.nota{color:var(--muted);font-size:.9rem;margin:2px 0 10px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 14px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.86rem;font-weight:600}
+label span.dica{font-weight:400;color:var(--muted);font-size:.8rem}
+input[type=text],input[type=number],input[type=date],select,textarea{
+  font:inherit;font-weight:400;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+textarea{min-height:60px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.check{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.arquivo{border:1.5px dashed var(--line);border-radius:10px;padding:12px;background:var(--bg);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.arquivo.ok{border-style:solid;border-color:var(--ok);background:var(--ok-soft)}
+.arquivo .resumo{flex:1 1 220px;font-size:.88rem;color:var(--muted)}
+.arquivo.ok .resumo{color:var(--text)}
+button{font:inherit;cursor:pointer;border-radius:8px}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 12px;font-weight:600}
+.btn:hover{border-color:var(--muted)}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.grande{padding:12px 20px;font-size:1.02rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.pequeno{padding:4px 9px;font-size:.85rem;font-weight:500}
+.indice{border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0;background:var(--surface)}
+.indice header{padding:0;margin:0 0 10px;align-items:center}
+.indice h3{margin:0;font-size:1rem}
+.mapa-classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:6px}
+.mapa-classes label{font-weight:500}
+.valores{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:180px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.msg{border-radius:10px;padding:10px 14px;margin:10px 0;font-size:.92rem;white-space:pre-wrap}
+.msg.erro{background:var(--err-soft);color:var(--err);border:1px solid var(--err)}
+.msg.aviso{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn)}
+.msg.ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+.progresso{display:flex;align-items:center;gap:12px;margin-top:12px;color:var(--muted)}
+.giro{width:18px;height:18px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:girar .8s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+details.log{margin-top:10px} details.log summary{cursor:pointer;color:var(--muted);font-size:.88rem}
+pre{background:var(--surface-2);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:.8rem;white-space:pre-wrap;margin:6px 0 0}
+#resultados{display:none}
+#resultados.visivel{display:block}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+iframe{width:100%;height:min(85vh,1100px);border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.ocultar{display:none!important}
+footer{color:var(--muted);font-size:.85rem;margin-top:30px}
+@media (max-width:600px){.passo>p.nota{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Calculadora de índices de perigo de incêndio</h1>
+    <p class="sub">Avalia índices diários de perigo contra os focos de calor e compara os índices entre si:
+    (a) desempenho contra os focos, (b) comparação temporal e (c) concordância espacial. Os arquivos são
+    processados no seu navegador e não são enviados para nenhum servidor.</p>
+  </div>
+  <div class="status ocupado" id="status"><i></i><span id="status-txt">Carregando o Python…</span></div>
+</header>
+
+<div class="intro">
+  <button class="btn" id="btn-exemplo" disabled>Preencher com dados simulados (teste)</button>
+  <span class="sub" style="margin:0">Use para ver como funciona antes de ter os dados reais.</span>
+</div>
+<div id="msg-geral"></div>
+
+<!-- 1. Área e período -->
+<section class="passo">
+  <h2><span class="n">1</span>Área de estudo e período</h2>
+  <p class="nota">Limite da área com as regiões de análise. Para o Paraguai, os departamentos do GADM
+  (gadm.org → Paraguay → GeoJSON nível 1) funcionam bem. Shapefile: selecione juntos o .shp, .shx, .dbf e .prj.</p>
+  <div class="arquivo" id="caixa-regioes">
+    <input type="file" id="arq-regioes" multiple accept=".geojson,.json,.gpkg,.shp,.shx,.dbf,.prj,.cpg">
+    <div class="resumo" id="res-regioes">Nenhum arquivo selecionado.</div>
+  </div>
+  <div id="cfg-regioes" class="ocultar" style="margin-top:12px">
+    <div class="grade">
+      <label>Campo com o nome dos polígonos<select id="reg-campo"></select></label>
+      <label>Nome da área inteira<input type="text" id="reg-total" value="Paraguai"></label>
+      <label>Nome do grupo marcado abaixo<input type="text" id="reg-grupo" value="Chaco"></label>
+      <label>Nome dos demais polígonos<input type="text" id="reg-demais" value="Oriental"></label>
+    </div>
+    <p class="nota" style="margin-top:10px">Marque os polígonos que formam o primeiro grupo (para o Paraguai:
+    Alto Paraguay, Boquerón e Presidente Hayes = Chaco). Sem nada marcado, cada polígono vira uma região.</p>
+    <div class="valores" id="reg-valores"></div>
+  </div>
+  <div class="grade" style="margin-top:14px">
+    <label>Início do período<input type="date" id="per-inicio" value="2025-08-01"></label>
+    <label>Fim do período<input type="date" id="per-fim" value="2025-09-30"></label>
+    <label>Grade comum<select id="grade-res">
+      <option value="0.1">0,10° (~11 km)</option><option value="0.25" selected>0,25° (~28 km)</option>
+      <option value="0.5">0,50° (~55 km)</option></select>
+      <span class="dica">Todos os índices são agregados para esta grade.</span></label>
+  </div>
+</section>
+
+<!-- 2. Focos -->
+<section class="passo">
+  <h2><span class="n">2</span>Focos de calor</h2>
+  <p class="nota">CSV do BDQueimadas (ou FIRMS), cobrindo o período e o dia seguinte ao último dia.
+  Pode selecionar vários arquivos.</p>
+  <div class="arquivo" id="caixa-focos">
+    <input type="file" id="arq-focos" multiple accept=".csv,.txt">
+    <div class="resumo" id="res-focos">Nenhum arquivo selecionado.</div>
+  </div>
+  <div id="cfg-focos" class="ocultar" style="margin-top:12px">
+    <div class="grade">
+      <label>Coluna de data e hora<select id="f-data"></select></label>
+      <label>Coluna de hora (só FIRMS)<select id="f-hora"></select><span class="dica">Ex.: acq_time (HHMM).</span></label>
+      <label>Coluna de latitude<select id="f-lat"></select></label>
+      <label>Coluna de longitude<select id="f-lon"></select></label>
+      <label>Filtrar pela coluna<select id="f-filtro-col"></select><span class="dica">Ex.: satélite.</span></label>
+      <label>Manter só o valor<select id="f-filtro-val"></select><span class="dica">Satélite de referência: AQUA_M-T.</span></label>
+      <label>Fuso horário (h)<input type="number" id="f-fuso" value="-3" step="1">
+        <span class="dica">Os focos vêm em UTC; Paraguai = −3.</span></label>
+      <label>Célula com fogo se tiver ≥<input type="number" id="f-min" value="1" min="1" step="1">
+        <span class="dica">focos no dia.</span></label>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Índices -->
+<section class="passo">
+  <h2><span class="n">3</span>Índices de perigo</h2>
+  <p class="nota">Selecione os arquivos de cada índice. Arquivos diários precisam ter a data no nome
+  (ex.: <code>indice_20250801.tif</code>); um NetCDF com vários dias (ex.: download do Copernicus) também serve.
+  Arquivos grandes do INPE são recortados para a área de estudo durante a leitura.</p>
+  <div id="lista-indices"></div>
+  <button class="btn" id="btn-add-indice">+ Adicionar índice</button>
+</section>
+
+<!-- 4. Comparação -->
+<section class="passo">
+  <h2><span class="n">4</span>Comparação espacial</h2>
+  <p class="nota">Os índices são reclassificados nas classes comuns definidas em cada índice (passo 3) e comparados
+  com o índice de referência. A concordância é calculada em <b>todos os dias</b>, por terços de atividade de fogo;
+  as datas selecionadas servem para os mapas ilustrativos.</p>
+  <div class="grade">
+    <label>Índice de referência<select id="c-ref"></select></label>
+    <label>Pesos do Kappa<select id="c-pesos"><option value="linear" selected>linear</option>
+      <option value="quadratico">quadrático</option><option value="nenhum">sem peso</option></select></label>
+    <label>Escolha das datas<select id="c-modo"><option value="auto" selected>automática (extremos de focos)</option>
+      <option value="manual">informar as datas</option></select></label>
+    <label class="check"><input type="checkbox" id="c-todos" checked>Concordância em todos os dias</label>
+  </div>
+  <div class="grade" id="c-auto" style="margin-top:12px">
+    <label>Datas por grupo<input type="number" id="c-n" value="2" min="1" max="10"><span class="dica">maiores e menores registros.</span></label>
+    <label class="check"><input type="checkbox" id="c-mes" checked>Escolher dentro de cada mês</label>
+    <label>Percentil alto<input type="number" id="c-palto" value="90" min="50" max="100"></label>
+    <label>Percentil baixo<input type="number" id="c-pbaixo" value="10" min="0" max="50"></label>
+    <label>Intervalo mínimo entre datas (dias)<input type="number" id="c-gap" value="3" min="1" max="15"></label>
+  </div>
+  <div id="c-manual" class="ocultar" style="margin-top:12px">
+    <label>Datas (uma por linha ou separadas por vírgula, AAAA-MM-DD)<textarea id="c-datas" placeholder="2025-08-01, 2025-08-30, 2025-08-05, 2025-08-07"></textarea></label>
+  </div>
+</section>
+
+<!-- 5. Calcular -->
+<section class="passo">
+  <h2><span class="n">5</span>Calcular</h2>
+  <div id="verificacao"></div>
+  <button class="btn primario grande" id="btn-calcular" disabled>Calcular</button>
+  <div class="progresso ocultar" id="progresso"><div class="giro"></div><span id="progresso-txt"></span></div>
+  <div id="msg-calculo"></div>
+  <details class="log"><summary>Mensagens do programa</summary><pre id="log"></pre></details>
+</section>
+
+<section id="resultados">
+  <div class="passo">
+    <h2><span class="n">✓</span>Resultados</h2>
+    <div class="acoes">
+      <button class="btn primario" id="baixar-excel">Baixar Excel</button>
+      <button class="btn" id="baixar-zip">Baixar tudo (.zip)</button>
+      <button class="btn" id="abrir-aba">Abrir em nova aba</button>
+      <button class="btn" id="baixar-cfg">Baixar configuração (.yaml)</button>
+    </div>
+    <p class="nota">O .zip traz a página de resultados (abre sem internet), os gráficos, os mapas, a planilha
+    e a configuração usada, para registrar no método.</p>
+  </div>
+  <iframe id="quadro" title="Resultados"></iframe>
+</section>
+
+<footer>Os cálculos usam o mesmo programa do repositório (Python, executado no navegador com Pyodide).
+Na primeira abertura, o navegador baixa o Python e as bibliotecas (~1 minuto); depois fica em cache.</footer>
+</div>
+
+<template id="tpl-indice">
+  <div class="indice">
+    <header><h3 class="titulo">Índice</h3><button class="btn pequeno remover" type="button">Remover</button></header>
+    <div class="grade">
+      <label>Nome<input type="text" class="i-nome"></label>
+      <label>Tipo<select class="i-tipo">
+        <option value="classes">raster já em classes (códigos)</option>
+        <option value="continuo">valor contínuo + limites</option>
+        <option value="percentil">ranking em percentis (climatologia)</option></select></label>
+    </div>
+    <div class="arquivo i-caixa" style="margin-top:10px">
+      <input type="file" class="i-arq" multiple accept=".tif,.tiff,.nc,.nc4">
+      <button class="btn pequeno i-pasta" type="button">Selecionar pasta</button>
+      <input type="file" class="i-arq-pasta ocultar" webkitdirectory multiple>
+      <div class="resumo i-res">Nenhum arquivo selecionado.</div>
+    </div>
+    <div class="grade" style="margin-top:10px">
+      <label>Padrão do nome dos arquivos<input type="text" class="i-padrao">
+        <span class="dica">{data} = AAAAMMDD; * = qualquer texto. Preenchido sozinho.</span></label>
+      <label class="i-var-lbl">Variável (NetCDF)<select class="i-var"><option value="">(automática)</option></select></label>
+    </div>
+    <div class="grade" style="margin-top:10px">
+      <label class="i-cod-lbl">Códigos das classes<input type="text" class="i-cod" placeholder="1, 2, 3, 4"></label>
+      <label class="i-lim-lbl">Limites entre as classes<input type="text" class="i-lim" placeholder="0.15, 0.40, 0.70, 0.95">
+        <span class="dica">Um a menos que o nº de classes.</span></label>
+      <label class="i-pct-lbl">Percentis-limite<input type="text" class="i-pct" placeholder="50, 90"></label>
+      <label>Nomes das classes (da menor para a maior)<input type="text" class="i-rot" placeholder="Baixo, Leve, Moderado, Alto"></label>
+      <label>Classe alta a partir de<select class="i-alta"></select></label>
+    </div>
+    <div class="i-clima ocultar" style="margin-top:10px">
+      <div class="arquivo i-caixa-clima">
+        <span style="font-weight:600;font-size:.86rem">Climatologia (NetCDF de vários anos)</span>
+        <input type="file" class="i-arq-clima" multiple accept=".nc,.nc4">
+        <div class="resumo i-res-clima">Nenhum arquivo selecionado.</div>
+      </div>
+      <label style="margin-top:8px;max-width:300px">Meses da climatologia<input type="text" class="i-meses" value="8, 9"></label>
+    </div>
+    <p class="nota" style="margin:12px 0 2px">Classe comum de cada classe (para a comparação espacial):</p>
+    <div class="mapa-classes i-comuns"></div>
+  </div>
+</template>
+
+<script>
+"use strict";
+const COMUNS = ["Baixo", "Moderado", "Alto"];
+const params = new URLSearchParams(location.search);
+const PYODIDE = params.get("pyodide") || "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
+const RODAS = params.get("rodas") ? params.get("rodas").split(",").map(u => new URL(u, location.href).href) : null;
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const lista = t => String(t || "").split(/[,;]+/).map(x => x.trim()).filter(Boolean);
+const numeros = t => lista(t).map(Number);
+
+const estado = { pronto: false, regioes: [], focos: [], indices: [], resultado: null, exemplo: false, cabecalho: [] };
+let seqIndice = 0;
+const pendentes = {};
+
+// ---------------- worker
+const worker = new Worker("worker.js");
+worker.onmessage = ev => {
+  const m = ev.data;
+  if (m.tipo === "log") { const l = $("#log"); l.textContent += m.texto + "\n"; l.scrollTop = l.scrollHeight; }
+  else if (m.tipo === "etapa") { setStatus(m.texto, "ocupado"); $("#progresso-txt").textContent = m.texto; }
+  else if (m.tipo === "pronto") {
+    estado.pronto = true; setStatus("Pronto", "pronto");
+    $("#btn-exemplo").disabled = false; atualizarBotao();
+    Object.values(pendentes).forEach(f => f()); for (const k in pendentes) delete pendentes[k];
+  }
+  else if (m.tipo === "inspecao") { const cb = callbacks[m.id]; delete callbacks[m.id]; cb && cb(m); }
+  else if (m.tipo === "exemplo") receberExemplo(m.pacote);
+  else if (m.tipo === "resultado") mostrarResultado(m);
+  else if (m.tipo === "erro") {
+    fimCalculo();
+    mensagem("#msg-calculo", "erro", "Não foi possível concluir:\n" + m.texto +
+      "\n\nVeja “Mensagens do programa” para os detalhes.");
+    if (m.detalhe) $("#log").textContent += "\n" + m.detalhe + "\n";
+    setStatus("Erro – veja a mensagem", "erro");
+  }
+};
+worker.onerror = e => setStatus("Erro ao carregar: " + e.message, "erro");
+worker.postMessage({ tipo: "iniciar", indexURL: PYODIDE, baseCodigo: new URL("codigo/", location.href).href, rodas: RODAS });
+
+function setStatus(txt, cls) {
+  const s = $("#status"); s.className = "status " + (cls || "");
+  $("#status-txt").textContent = txt.length > 70 ? txt.slice(0, 68) + "…" : txt;
+}
+function mensagem(sel, tipo, txt) { $(sel).innerHTML = txt ? `<div class="msg ${tipo}"></div>` : ""; if (txt) $(sel + " .msg").textContent = txt; }
+
+const callbacks = {};
+let seqInsp = 0;
+function inspecionar(tipo, arquivos, campo) {
+  return new Promise(res => {
+    const id = "i" + (++seqInsp);
+    callbacks[id] = res;
+    const go = () => worker.postMessage({ tipo: "inspecionar", id, arquivos, campo, tipoArq: tipo });
+    if (estado.pronto) go(); else pendentes[id] = go;
+  });
+}
+
+// ---------------- utilidades
+const tamanho = b => b > 1e9 ? (b / 1e9).toFixed(1) + " GB" : b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1e3)) + " kB";
+function resumoArquivos(arqs) {
+  if (!arqs.length) return "Nenhum arquivo selecionado.";
+  const total = arqs.reduce((s, a) => s + a.size, 0);
+  const nomes = arqs.slice(0, 3).map(a => a.name).join(", ") + (arqs.length > 3 ? ` … (+${arqs.length - 3})` : "");
+  return `${arqs.length} arquivo(s), ${tamanho(total)}: ${nomes}`;
+}
+function padraoDoNome(nomes) {
+  if (!nomes.length) return "";
+  const n = nomes[0];
+  const m8 = n.match(/(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+  if (m8 && nomes.length > 1) return n.replace(m8[0], "{data}");
+  const m10 = n.match(/(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/);
+  if (m10 && nomes.length > 1) return n.replace(m10[0], "{ano}-{mes}-{dia}");
+  const ext = n.slice(n.lastIndexOf("."));
+  return "*" + ext;
+}
+function opcoes(sel, valores, atual, vazio) {
+  sel.innerHTML = (vazio ? `<option value="">${vazio}</option>` : "") +
+    valores.map(v => `<option value="${String(v).replace(/"/g, "&quot;")}">${v}</option>`).join("");
+  if (atual !== undefined && valores.includes(atual)) sel.value = atual;
+}
+
+// ---------------- 1. regiões
+$("#arq-regioes").onchange = e => carregarRegioes([...e.target.files]);
+async function carregarRegioes(arqs, campoPreferido) {
+  estado.regioes = arqs;
+  $("#res-regioes").textContent = resumoArquivos(arqs) + (arqs.length ? " – lendo…" : "");
+  $("#caixa-regioes").classList.toggle("ok", arqs.length > 0);
+  if (!arqs.length) { $("#cfg-regioes").classList.add("ocultar"); atualizarBotao(); return; }
+  const r = await inspecionar("regioes", arqs, campoPreferido);
+  if (r.erro) { $("#res-regioes").textContent = "Não consegui ler: " + r.erro; $("#caixa-regioes").classList.remove("ok"); return; }
+  const x = r.resultado;
+  $("#res-regioes").textContent = resumoArquivos(arqs) + ` · ${x.n} polígono(s)`;
+  opcoes($("#reg-campo"), x.campos, x.campo);
+  desenharValores(x.valores);
+  $("#cfg-regioes").classList.remove("ocultar");
+  atualizarBotao();
+}
+$("#reg-campo").onchange = async () => {
+  const r = await inspecionar("regioes", estado.regioes, $("#reg-campo").value);
+  if (!r.erro) desenharValores(r.resultado.valores);
+};
+function desenharValores(valores) {
+  const chaco = ["Alto Paraguay", "Boquerón", "Boqueron", "Presidente Hayes", "Chaco"];
+  $("#reg-valores").innerHTML = valores.map(v =>
+    `<label class="check"><input type="checkbox" value="${v.replace(/"/g, "&quot;")}" ${chaco.includes(v) ? "checked" : ""}>${v}</label>`).join("")
+    || '<span class="sub">Sem valores.</span>';
+}
+
+// ---------------- 2. focos
+$("#arq-focos").onchange = e => carregarFocos([...e.target.files]);
+async function carregarFocos(arqs) {
+  estado.focos = arqs;
+  $("#res-focos").textContent = resumoArquivos(arqs);
+  $("#caixa-focos").classList.toggle("ok", arqs.length > 0);
+  if (!arqs.length) { $("#cfg-focos").classList.add("ocultar"); atualizarBotao(); return; }
+  const texto = await arqs[0].slice(0, 3e6).text();
+  const linhas = texto.split(/\r?\n/).filter(l => l.trim());
+  const cab = linhas[0];
+  const sep = (cab.match(/;/g) || []).length > (cab.match(/,/g) || []).length ? ";" : ",";
+  const limpa = s => s.trim().replace(/^"|"$/g, "");
+  const cols = cab.split(sep).map(limpa);
+  estado.cabecalho = cols; estado.sep = sep;
+  estado.amostra = linhas.slice(1, -1).map(l => l.split(sep).map(limpa));
+  const acha = (...nomes) => cols.find(c => nomes.some(n => c.toLowerCase() === n.toLowerCase()));
+  opcoes($("#f-data"), cols, acha("data_hora_gmt", "DataHora", "datahora", "acq_date", "data"));
+  opcoes($("#f-hora"), cols, acha("acq_time"), "(nenhuma)");
+  if (!acha("acq_time")) $("#f-hora").value = "";
+  opcoes($("#f-lat"), cols, acha("lat", "latitude"));
+  opcoes($("#f-lon"), cols, acha("lon", "longitude"));
+  opcoes($("#f-filtro-col"), cols, acha("satelite", "Satelite", "satellite"), "(sem filtro)");
+  atualizarValoresFiltro();
+  $("#res-focos").textContent = resumoArquivos(arqs) + ` · ${cols.length} colunas, separador “${sep}”`;
+  $("#cfg-focos").classList.remove("ocultar");
+  atualizarBotao();
+}
+$("#f-filtro-col").onchange = atualizarValoresFiltro;
+function atualizarValoresFiltro() {
+  const c = $("#f-filtro-col").value;
+  const i = estado.cabecalho.indexOf(c);
+  if (i < 0) { opcoes($("#f-filtro-val"), [], "", "(todos)"); return; }
+  const cont = {};
+  for (const l of estado.amostra) if (l[i] !== undefined) cont[l[i]] = (cont[l[i]] || 0) + 1;
+  const vals = Object.keys(cont).sort((a, b) => cont[b] - cont[a]);
+  opcoes($("#f-filtro-val"), vals, vals.includes("AQUA_M-T") ? "AQUA_M-T" : vals[0], "(todos)");
+}
+
+// ---------------- 3. índices
+const PADROES = [
+  { nome: "Índice proposto", tipo: "classes", cod: "1, 2, 3, 4", rot: "Baixo, Leve, Moderado, Alto", alta: "Alto",
+    comuns: { "Baixo": "Baixo", "Leve": "Baixo", "Moderado": "Moderado", "Alto": "Alto" } },
+  { nome: "RF INPE", tipo: "continuo", lim: "0.15, 0.40, 0.70, 0.95", rot: "Mínimo, Baixo, Médio, Alto, Crítico", alta: "Alto",
+    comuns: { "Mínimo": "Baixo", "Baixo": "Baixo", "Médio": "Moderado", "Alto": "Alto", "Crítico": "Alto" } },
+  { nome: "FWI GWIS (ranking)", tipo: "percentil", pct: "50, 90", rot: "abaixo de P50, P50 a P90, acima de P90",
+    alta: "acima de P90", comuns: { "abaixo de P50": "Baixo", "P50 a P90": "Moderado", "acima de P90": "Alto" } },
+];
+function novoIndice(p = {}) {
+  const k = seqIndice++;
+  const el = $("#tpl-indice").content.firstElementChild.cloneNode(true);
+  el.dataset.k = k;
+  const obj = { k, el, arquivos: [], clima: [], comunsPadrao: p.comuns || {} };
+  estado.indices.push(obj);
+  $(".i-nome", el).value = p.nome || `Índice ${k + 1}`;
+  $(".i-tipo", el).value = p.tipo || "continuo";
+  $(".i-cod", el).value = p.cod || "";
+  $(".i-lim", el).value = p.lim || "";
+  $(".i-pct", el).value = p.pct || "";
+  $(".i-rot", el).value = p.rot || "";
+  const titulo = () => { $(".titulo", el).textContent = $(".i-nome", el).value || "Índice"; atualizarReferencia(); };
+  $(".i-nome", el).oninput = titulo;
+  $(".i-tipo", el).onchange = () => tipoMudou(obj);
+  $(".i-rot", el).oninput = () => classesMudaram(obj);
+  $(".remover", el).onclick = () => { el.remove(); estado.indices = estado.indices.filter(x => x !== obj); atualizarReferencia(); atualizarBotao(); };
+  $(".i-arq", el).onchange = e => arquivosIndice(obj, [...e.target.files]);
+  $(".i-pasta", el).onclick = () => $(".i-arq-pasta", el).click();
+  $(".i-arq-pasta", el).onchange = e => arquivosIndice(obj, [...e.target.files].filter(f => /\.(tif|tiff|nc|nc4)$/i.test(f.name)));
+  $(".i-arq-clima", el).onchange = e => climaIndice(obj, [...e.target.files]);
+  $("#lista-indices").appendChild(el);
+  titulo(); tipoMudou(obj); classesMudaram(obj, p.alta);
+  return obj;
+}
+function tipoMudou(o) {
+  const t = $(".i-tipo", o.el).value;
+  $(".i-cod-lbl", o.el).classList.toggle("ocultar", t !== "classes");
+  $(".i-lim-lbl", o.el).classList.toggle("ocultar", t !== "continuo");
+  $(".i-pct-lbl", o.el).classList.toggle("ocultar", t !== "percentil");
+  $(".i-clima", o.el).classList.toggle("ocultar", t !== "percentil");
+  atualizarBotao();
+}
+function classesMudaram(o, altaPadrao) {
+  const rot = lista($(".i-rot", o.el).value);
+  const atual = altaPadrao || $(".i-alta", o.el).value;
+  opcoes($(".i-alta", o.el), rot, rot.includes(atual) ? atual : rot[rot.length - 1]);
+  const box = $(".i-comuns", o.el);
+  const antes = {}; $$("select", box).forEach(s => antes[s.dataset.r] = s.value);
+  box.innerHTML = "";
+  rot.forEach((r, i) => {
+    const lab = document.createElement("label");
+    lab.textContent = r;
+    const sel = document.createElement("select"); sel.dataset.r = r;
+    opcoes(sel, COMUNS);
+    const auto = COMUNS[Math.min(COMUNS.length - 1, Math.floor(i * COMUNS.length / Math.max(rot.length, 1)))];
+    sel.value = antes[r] || o.comunsPadrao[r] || auto;
+    lab.appendChild(sel); box.appendChild(lab);
+  });
+  atualizarBotao();
+}
+async function arquivosIndice(o, arqs) {
+  arqs.sort((a, b) => a.name.localeCompare(b.name));
+  o.arquivos = arqs;
+  $(".i-res", o.el).textContent = resumoArquivos(arqs);
+  $(".i-caixa", o.el).classList.toggle("ok", arqs.length > 0);
+  $(".i-padrao", o.el).value = padraoDoNome(arqs.map(a => a.name));
+  const nc = arqs.find(a => /\.nc4?$/i.test(a.name));
+  $(".i-var-lbl", o.el).classList.toggle("ocultar", !nc);
+  atualizarBotao();
+  if (!nc) return;
+  $(".i-res", o.el).textContent += " – lendo as variáveis…";
+  const r = await inspecionar("netcdf", [nc]);
+  if (r.erro) { $(".i-res", o.el).textContent = resumoArquivos(arqs) + " · não consegui abrir o NetCDF: " + r.erro; return; }
+  const vs = r.resultado.variaveis;
+  const sel = $(".i-var", o.el);
+  sel.innerHTML = vs.map(v => `<option value="${v.nome}">${v.nome}${v.descricao ? " – " + v.descricao : ""} (${v.dims.join(", ")})</option>`).join("");
+  const pref = vs.find(v => /fwi|rf|risco|fire/i.test(v.nome));
+  if (pref) sel.value = pref.nome;
+  $(".i-res", o.el).textContent = resumoArquivos(arqs) + (r.resultado.n_tempo > 1 ? ` · ${r.resultado.n_tempo} dias no arquivo` : "");
+}
+function climaIndice(o, arqs) {
+  o.clima = arqs;
+  $(".i-res-clima", o.el).textContent = resumoArquivos(arqs);
+  $(".i-caixa-clima", o.el).classList.toggle("ok", arqs.length > 0);
+  atualizarBotao();
+}
+$("#btn-add-indice").onclick = () => novoIndice({ nome: "", tipo: "continuo" });
+PADROES.forEach(p => novoIndice(p));
+
+function atualizarReferencia() {
+  const nomes = estado.indices.map(o => $(".i-nome", o.el).value).filter(Boolean);
+  opcoes($("#c-ref"), nomes, $("#c-ref").value || nomes[0]);
+}
+atualizarReferencia();
+
+// ---------------- 4. comparação
+$("#c-modo").onchange = () => {
+  const m = $("#c-modo").value === "manual";
+  $("#c-manual").classList.toggle("ocultar", !m); $("#c-auto").classList.toggle("ocultar", m);
+};
+
+// ---------------- verificação e configuração
+function problemas() {
+  const p = [];
+  if (!estado.regioes.length) p.push("Selecione o arquivo de regiões (passo 1).");
+  if (!estado.focos.length) p.push("Selecione o CSV de focos (passo 2).");
+  if (estado.indices.length < 1) p.push("Inclua pelo menos um índice (passo 3).");
+  for (const o of estado.indices) {
+    const nome = $(".i-nome", o.el).value || "Índice";
+    const t = $(".i-tipo", o.el).value, rot = lista($(".i-rot", o.el).value);
+    if (!o.arquivos.length) p.push(`${nome}: selecione os arquivos.`);
+    if (rot.length < 2) p.push(`${nome}: informe os nomes das classes.`);
+    if (t === "classes" && lista($(".i-cod", o.el).value).length !== rot.length) p.push(`${nome}: o nº de códigos deve ser igual ao nº de classes.`);
+    if (t === "continuo" && numeros($(".i-lim", o.el).value).length !== rot.length - 1) p.push(`${nome}: informe ${rot.length - 1} limite(s) para ${rot.length} classes.`);
+    if (t === "percentil" && numeros($(".i-pct", o.el).value).length !== rot.length - 1) p.push(`${nome}: informe ${rot.length - 1} percentil(is) para ${rot.length} classes.`);
+    if (t === "percentil" && !o.clima.length) p.push(`${nome}: selecione os arquivos da climatologia.`);
+  }
+  const nomes = estado.indices.map(o => $(".i-nome", o.el).value);
+  if (new Set(nomes).size !== nomes.length) p.push("Os índices precisam ter nomes diferentes.");
+  return p;
+}
+function atualizarBotao() {
+  const p = problemas();
+  $("#btn-calcular").disabled = !estado.pronto || p.length > 0;
+  $("#verificacao").innerHTML = p.length ? `<div class="msg aviso">Falta:\n• ${p.join("\n• ")}</div>` : "";
+}
+document.addEventListener("input", () => setTimeout(atualizarBotao, 0));
+
+function nomeRegioesPrincipal() {
+  const a = estado.regioes.find(f => /\.(shp|geojson|json|gpkg)$/i.test(f.name)) || estado.regioes[0];
+  return a.name;
+}
+function montarConfig() {
+  const marcados = $$("#reg-valores input:checked").map(i => i.value);
+  const regioes = { arquivo: "/dados/regioes/" + nomeRegioesPrincipal(), campo: $("#reg-campo").value || null,
+                    nome_total: $("#reg-total").value || "Total" };
+  if (marcados.length) { regioes.agrupar = { [$("#reg-grupo").value || "Grupo 1"]: marcados }; regioes.demais = $("#reg-demais").value || "Demais"; }
+  const focos = { arquivo: "/dados/focos/*", separador: estado.sep || ",", coluna_data: $("#f-data").value,
+                  coluna_lat: $("#f-lat").value, coluna_lon: $("#f-lon").value,
+                  fuso_horas: Number($("#f-fuso").value || 0), min_focos_celula: Number($("#f-min").value || 1) };
+  if ($("#f-hora").value) focos.coluna_hora = $("#f-hora").value;
+  if ($("#f-filtro-col").value && $("#f-filtro-val").value) focos.filtro = { [$("#f-filtro-col").value]: [$("#f-filtro-val").value] };
+  const grupos = [{ chave: "regioes", arquivos: estado.regioes },
+                  { chave: "focos", pasta: "/dados/focos", arquivos: estado.focos, rotulo: "focos" }];
+  const indices = estado.indices.map((o, j) => {
+    const t = $(".i-tipo", o.el).value, rot = lista($(".i-rot", o.el).value);
+    const ic = { nome: $(".i-nome", o.el).value, arquivos: `/dados/indice_${j}/` + ($(".i-padrao", o.el).value || "*"),
+                 tipo: t, rotulos: rot, classe_alta_a_partir_de: $(".i-alta", o.el).value };
+    const v = $(".i-var", o.el).value; if (v && !$(".i-var-lbl", o.el).classList.contains("ocultar")) ic.variavel = v;
+    if (t === "classes") ic.codigos = numeros($(".i-cod", o.el).value);
+    if (t === "continuo") ic.limites = numeros($(".i-lim", o.el).value);
+    if (t === "percentil") {
+      ic.limites_percentis = numeros($(".i-pct", o.el).value);
+      ic.climatologia = `/dados/climatologia_${j}/*`;
+      const meses = numeros($(".i-meses", o.el).value).filter(x => x >= 1 && x <= 12);
+      if (meses.length) ic.meses_climatologia = meses;
+      grupos.push({ chave: "clima" + j, pasta: `/dados/climatologia_${j}`, arquivos: o.clima, rotulo: `climatologia de ${ic.nome}`, variavel: ic.variavel });
+    }
+    const cc = {}; COMUNS.forEach(c => cc[c] = []);
+    $$(".i-comuns select", o.el).forEach(s => cc[s.value].push(s.dataset.r));
+    ic.classes_comuns = cc;
+    grupos.push({ chave: "ind" + j, pasta: `/dados/indice_${j}`, arquivos: o.arquivos, rotulo: ic.nome, variavel: ic.variavel });
+    return ic;
+  });
+  const ce = { classes: COMUNS, referencia: $("#c-ref").value, regiao_selecao: regioes.nome_total,
+               kappa_pesos: $("#c-pesos").value, todos_os_dias: $("#c-todos").checked };
+  if ($("#c-modo").value === "manual") ce.datas = lista($("#c-datas").value.replace(/\s+/g, ","));
+  else Object.assign(ce, { datas: "automatico", por_mes: $("#c-mes").checked, n_por_grupo: Number($("#c-n").value),
+    percentil_alto: Number($("#c-palto").value), percentil_baixo: Number($("#c-pbaixo").value),
+    intervalo_minimo_dias: Number($("#c-gap").value) });
+  const config = { titulo: "Avaliação dos índices de perigo de incêndio",
+    periodo: { inicio: $("#per-inicio").value, fim: $("#per-fim").value },
+    grade: { resolucao: Number($("#grade-res").value) }, somente_dias_comuns: true, cache: "/trabalho/cache",
+    regioes, focos, indices, comparacao_espacial: ce, saida: { pasta: "/trabalho/resultados" } };
+  if (estado.exemplo) config.aviso_relatorio = "EXEMPLO COM DADOS SIMULADOS – os números não são reais.";
+  return { config, grupos };
+}
+
+// ---------------- calcular
+$("#btn-calcular").onclick = () => {
+  const { config, grupos } = montarConfig();
+  $("#log").textContent = "";
+  mensagem("#msg-calculo", "", "");
+  $("#btn-calcular").disabled = true;
+  $("#progresso").classList.remove("ocultar");
+  $("#resultados").classList.remove("visivel");
+  worker.postMessage({ tipo: "calcular", config, grupos });
+};
+function fimCalculo() { $("#progresso").classList.add("ocultar"); atualizarBotao(); }
+function baixar(nome, dados, tipo) {
+  const url = URL.createObjectURL(new Blob([dados], { type: tipo }));
+  const a = document.createElement("a"); a.href = url; a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+function mostrarResultado(m) {
+  fimCalculo();
+  estado.resultado = m;
+  setStatus("Pronto – resultados abaixo", "pronto");
+  mensagem("#msg-calculo", "ok", "Cálculo concluído.");
+  $("#quadro").srcdoc = m.pagina;
+  $("#resultados").classList.add("visivel");
+  $("#resultados").scrollIntoView({ behavior: "smooth" });
+}
+$("#baixar-excel").onclick = () => baixar("avaliacao.xlsx", estado.resultado.excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+$("#baixar-zip").onclick = () => baixar("resultados.zip", estado.resultado.zip, "application/zip");
+$("#baixar-cfg").onclick = () => baixar("config.yaml", estado.resultado.cfgYaml, "text/yaml");
+$("#abrir-aba").onclick = () => window.open(URL.createObjectURL(new Blob([estado.resultado.pagina], { type: "text/html" })), "_blank");
+
+// ---------------- exemplo
+$("#btn-exemplo").onclick = () => {
+  $("#btn-exemplo").disabled = true;
+  setStatus("Gerando dados simulados…", "ocupado");
+  worker.postMessage({ tipo: "exemplo" });
+};
+async function receberExemplo(p) {
+  const arq = (lista, tipo = "application/octet-stream") => lista.map(f => new File([f.dados], f.nome, { type: tipo }));
+  estado.exemplo = true;
+  await carregarRegioes(arq(p.regioes));
+  await carregarFocos(arq(p.focos, "text/csv"));
+  const [i0, i1, i2] = estado.indices;
+  if (i0) await arquivosIndice(i0, arq(p.indice_proposto));
+  if (i1) await arquivosIndice(i1, arq(p.inpe));
+  if (i2) { await arquivosIndice(i2, arq(p.gwis)); climaIndice(i2, arq(p.climatologia)); }
+  $("#btn-exemplo").disabled = false;
+  setStatus("Pronto", "pronto");
+  mensagem("#msg-geral", "aviso", "Formulário preenchido com dados SIMULADOS. Confira os campos e clique em Calcular (passo 5).");
+  atualizarBotao();
+}
+</script>
+</body>
+</html>

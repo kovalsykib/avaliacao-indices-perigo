@@ -63,5 +63,6 @@ comparacao_espacial:
   percentil_baixo: 10
   intervalo_minimo_dias: 3
   kappa_pesos: linear
+  todos_os_dias: true          # concordância espacial em todos os dias (recomendado)
 
 saida: {pasta: ../resultados_exemplo}

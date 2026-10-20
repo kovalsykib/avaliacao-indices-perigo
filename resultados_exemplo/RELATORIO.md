@@ -1,6 +1,6 @@
 # Resultados da avaliação dos índices de perigo
 
-_Gerado automaticamente em 20/10/2026 06:38._ Os números completos estão em `avaliacao.xlsx`.
+_Gerado automaticamente em 20/10/2026 07:45._ Os números completos estão em `avaliacao.xlsx`.
 
 > **EXEMPLO COM DADOS SIMULADOS – os números não são reais.**
 
@@ -109,7 +109,27 @@ Percentis da série diária de focos: P alto = 497 focos, P baixo = 121 focos.
 | 29/09/2025 | maiores registros | 946 | 100.0 | sim |
 
 
-### Concordância (Paraguai)
+### Concordância em todos os dias (Paraguai)
+
+Dias separados em terços pela série de focos: baixa ≤ 221 focos, média ≤ 320, alta > 320.
+
+
+| par | grupo de atividade | dias | % concordância (mediana) | Kappa ponderado (linear) – mediana |
+|---|---|---|---|---|
+| Índice proposto × RF INPE | baixa atividade | 20 | 55.76 | 0.217 |
+| Índice proposto × RF INPE | média atividade | 20 | 53.07 | 0.209 |
+| Índice proposto × RF INPE | alta atividade | 20 | 51.22 | 0.393 |
+| Índice proposto × RF INPE | todos os dias | 60 | 53.33 | 0.243 |
+| Índice proposto × FWI GWIS (ranking) | baixa atividade | 20 | 72.41 | 0.240 |
+| Índice proposto × FWI GWIS (ranking) | média atividade | 20 | 53.59 | 0.274 |
+| Índice proposto × FWI GWIS (ranking) | alta atividade | 20 | 56.91 | 0.352 |
+| Índice proposto × FWI GWIS (ranking) | todos os dias | 60 | 60.88 | 0.287 |
+
+
+![concordância diária](c_concordancia_diaria_paraguai.png)
+
+
+### Concordância nas datas ilustrativas (Paraguai)
 
 | data | par | células | % concordância | Kappa | Kappa ponderado (linear) |
 |---|---|---|---|---|---|

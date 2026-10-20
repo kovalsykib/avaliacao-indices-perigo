@@ -22,7 +22,8 @@ import yaml
 from src import leitura as L
 from src import analises as A
 from src import saida as S
-from src.indices import Indice
+from src import pagina as P
+from src.indices import Indice, slug
 
 
 def main(caminho_cfg):
@@ -112,6 +113,7 @@ def main(caminho_cfg):
             equiv[ind.nome] = [", ".join(r for k, r in enumerate(ind.rotulos) if ind.mapa_comum[k] == i)
                                for i in range(len(nomes_comuns))]
     datas_sel, conc, matr, faltam_datas = None, pd.DataFrame(), pd.DataFrame(), []
+    conc_d, conc_r, img_conc = pd.DataFrame(), pd.DataFrame(), {}
     img_mapas = []
     com_comum = [i for i in indices if i.mapa_comum is not None]
     if ce and len(com_comum) >= 2:
@@ -123,6 +125,11 @@ def main(caminho_cfg):
         datas_ts = [pd.Timestamp(d) for d in datas_sel["data"]]
         conc, matr = A.concordancia(datas_ts, indices, comuns, mascaras, nomes_comuns, referencia, pesos)
         img_mapas = S.mapas(datas_sel, indices, comuns, grade, reg_ras, gdf, focos, nomes_comuns, saida / "mapas")
+        if ce.get("todos_os_dias", True):
+            conc_d, conc_r = A.concordancia_diaria(dias_validos, indices, comuns, mascaras, nomes_comuns,
+                                                   referencia, pesos, serie, ce["regiao_selecao"])
+            for reg in mascaras:
+                img_conc[reg] = S.grafico_concordancia_diaria(conc_d, reg, saida)
         print(f"Datas selecionadas: {', '.join(pd.to_datetime(datas_sel['data']).dt.strftime('%d/%m').tolist())}")
 
     # ---------------- parâmetros
@@ -155,15 +162,35 @@ def main(caminho_cfg):
         "Resumo": resumo, "a_Focos_por_classe": t_classe, "a_Contingencia": t_cont,
         "a_Correlacoes_focos": corr_f, "b_Correlacao_entre_indices": corr_i,
         "Serie_diaria": serie, "c_Equivalencia_classes": equiv, "c_Datas_selecionadas": ds_x,
-        "c_Concordancia": conc, "c_Matrizes_confusao": matr,
+        "c_Concordancia_resumo": conc_r, "c_Concordancia_diaria": conc_d,
+        "c_Concordancia_datas": conc, "c_Matrizes_confusao": matr,
         "Parametros": parametros, "Arquivos_faltantes": falt})
     img_series = S.grafico_series_focos(serie, indices, mascaras, saida)
     img_razao = S.grafico_razao(t_classe, indices, nome_total, saida)
+    for reg in mascaras:
+        S.grafico_razao(t_classe, indices, reg, saida, f"a_razao_por_classe_{slug(reg)}.png")
     img_temp = S.grafico_comparacao_temporal(serie, indices, mascaras, nome_alto, saida)
     S.relatorio(saida, {"parametros": parametros, "faltantes": faltantes, "resumo": resumo,
                         "img_razao": img_razao, "img_series": img_series, "corr_indices": corr_i,
                         "img_temporal": img_temp, "equivalencia": equiv, "datas_sel": datas_sel,
-                        "concordancia": conc, "img_mapas": img_mapas, "aviso": cfg.get("aviso_relatorio")})
+                        "concordancia": conc, "img_mapas": img_mapas, "aviso": cfg.get("aviso_relatorio"),
+                        "conc_resumo": conc_r, "img_conc_diaria": img_conc.get(nome_total)})
+    mapas_pg = []
+    if datas_sel is not None:
+        for _, lin in datas_sel.sort_values("data").iterrows():
+            d = pd.Timestamp(lin["data"])
+            mapas_pg.append({"data": str(d.date()), "rotulo": f"{d:%d/%m/%Y}", "grupo": lin["grupo"],
+                             "focos": int(lin["focos"]), "arquivo": f"mapa_{d:%Y%m%d}.png"})
+    P.gerar(saida, {
+        "titulo": cfg.get("titulo", "Avaliação dos índices de perigo de incêndio"),
+        "aviso": cfg.get("aviso_relatorio"), "periodo": f"{inicio:%d/%m/%Y} a {fim:%d/%m/%Y}",
+        "regioes": list(mascaras), "indices": [i.nome for i in indices], "mapas": mapas_pg,
+        "resumo": resumo, "classe": t_classe, "cont": t_cont, "corr_f": corr_f, "corr_i": corr_i,
+        "equiv": equiv, "datas": ds_x, "conc": conc, "matr": matr, "param": parametros, "falt": falt,
+        "conc_r": conc_r, "conc_d": conc_d,
+        "limites_atividade": conc_r.attrs.get("limites") if len(conc_r) else None,
+        "img_conc": {r: (p.name if p else None) for r, p in img_conc.items()},
+        "embutir": bool(cfg.get("pagina_embutida", False))})
     print(f"Pronto. Resultados em: {saida}")
 
 

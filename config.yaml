@@ -112,6 +112,7 @@ comparacao_espacial:
   percentil_baixo: 10
   intervalo_minimo_dias: 3      # evita escolher dias consecutivos
   kappa_pesos: linear           # linear, quadratico ou nenhum
+  todos_os_dias: true           # concordância em TODOS os dias, por terços de atividade de fogo
 
 saida:
   pasta: resultados

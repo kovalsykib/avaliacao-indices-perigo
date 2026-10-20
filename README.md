@@ -6,9 +6,12 @@ Este repositório compara índices diários de perigo de incêndio com os focos 
 - o **Risco de Fogo (RF) do INPE**;
 - o **FWI do GWIS/CEMS**, em ranking por percentis.
 
-**Basta colocar os arquivos nas pastas de `dados/`.** O GitHub roda as análises sozinho e publica os resultados em [`resultados/RELATORIO.md`](resultados/RELATORIO.md).
+Há duas formas de usar:
 
-Veja um exemplo do resultado, feito com dados simulados, em [`resultados_exemplo/RELATORIO.md`](resultados_exemplo/RELATORIO.md).
+1. **Calculadora on-line (mais simples):** abra `https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/`, selecione os arquivos do seu computador, ajuste o formulário e clique em **Calcular**. Os resultados aparecem na própria página, com download do Excel e de um .zip. **Os arquivos não saem do seu computador:** tudo é processado no navegador.
+2. **Automação no GitHub:** coloque os arquivos nas pastas de `dados/`, e o GitHub roda as análises sozinho e publica os resultados em [`resultados/RELATORIO.md`](resultados/RELATORIO.md).
+
+As duas usam o **mesmo programa** e dão os mesmos números. Veja um exemplo do resultado, feito com dados simulados, em [`resultados_exemplo/RELATORIO.md`](resultados_exemplo/RELATORIO.md).
 
 ---
 
@@ -24,8 +27,9 @@ Os três índices são avaliados pela mesma referência externa, os focos. Os c�
 - As séries diárias da % da área na classe comum "Alto", por região, num mesmo gráfico.
 - A correlação de Spearman entre cada par de índices.
 
-### (c) Comparação espacial nas datas selecionadas
-- **Escolha das datas:** pelos extremos da série de focos (maiores e menores registros por mês), comparados aos percentis P90 e P10, **sem dias consecutivos**, com o número de focos de cada data. Também dá para informar as datas manualmente.
+### (c) Comparação espacial
+- **Concordância em todos os dias (principal):** % de concordância e Kappa ponderado entre os mapas reclassificados, calculados em **cada dia** do período. Os dias são separados em terços pela série de focos (baixa, média e alta atividade de fogo), com mediana, quartis, série diária e boxplot por grupo. As conclusões devem se apoiar aqui, e não em poucas datas.
+- **Datas ilustrativas, para os mapas:** pelos extremos da série de focos (maiores e menores registros por mês), comparados aos percentis P90 e P10, **sem dias consecutivos**, com o número de focos de cada data. Também dá para informar as datas manualmente.
 - **Classes comuns:** os três índices reclassificados em Baixo, Moderado e Alto, com a **tabela de equivalência** explícita. Ela é definida em `config.yaml` e precisa ser justificada no trabalho.
 - **Concordância:** mapas lado a lado (com os focos do dia), **matriz de confusão**, **% de concordância**, **Kappa** e **Kappa ponderado** para cada par (índice proposto × INPE, índice proposto × GWIS), em cada data e no conjunto.
 
@@ -35,7 +39,23 @@ Todos os índices são agregados para uma **grade comum de 0,25°**:
 
 ---
 
-## Como usar no GitHub
+## Calculadora on-line
+
+O endereço é `https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/`. Para ativar, uma única vez, faça **Settings → Pages → Source: GitHub Actions** e rode **Actions → Rodar análise → Run workflow**.
+
+1. **Teste primeiro:** o botão *"Preencher com dados simulados"* carrega um exemplo completo. Depois clique em **Calcular**.
+2. **Passo 1, área e período:** o limite do Paraguai (GeoJSON do GADM, ou shapefile selecionando .shp, .shx, .dbf e .prj juntos) e os polígonos que formam o Chaco.
+3. **Passo 2, focos:** o CSV do BDQueimadas. As colunas e os satélites aparecem para escolher.
+4. **Passo 3, índices:** os arquivos de cada índice. Dá para selecionar vários arquivos ou a pasta inteira. O padrão do nome (com a data) e a variável do NetCDF são preenchidos sozinhos. Também se definem as classes, a classe alta e a classe comum de cada classe.
+5. **Passos 4 e 5:** as regras da comparação espacial, e então **Calcular**.
+
+Algumas observações:
+- **Primeira abertura:** o navegador baixa o Python e as bibliotecas, o que leva cerca de 1 minuto. Depois fica em cache.
+- **RF do INPE:** na calculadora, os arquivos do INPE precisam ser baixados antes, porque o navegador não consegue buscá-los sozinho no servidor do INPE. Arquivos grandes são recortados para a área de estudo durante a leitura.
+- **Navegador:** use Chrome, Edge ou Firefox atualizados, num computador. Com os dois meses completos (~550 MB do INPE), espere alguns minutos.
+- **Configuração:** o botão *"Baixar configuração"* gera um `config.yaml` com tudo o que foi usado, para registrar no método.
+
+## Como usar no GitHub (automação)
 
 1. **Coloque os dados** nas pastas abaixo. Pelo navegador: abra a pasta → **Add file → Upload files**. Cada pasta tem um `LEIA-ME.md` explicando o formato.
 
@@ -54,6 +74,14 @@ Todos os índices são agregados para uma **grade comum de 0,25°**:
    - `RELATORIO.md`: tabelas e figuras, legível direto no GitHub;
    - `avaliacao.xlsx`: todas as tabelas (abas `Resumo`, `a_…`, `b_…`, `c_…`, `Parametros`, `Arquivos_faltantes`);
    - `*.png` e `mapas/*.png`: gráficos e mapas.
+
+### Página de resultados (site)
+
+Cada execução também publica os resultados da pasta `dados/` como **página web**, em `https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/resultados/`. Ela tem as abas Resumo, (a), (b), (c) e Parâmetros, o filtro por região, os mapas por data e um botão para baixar o Excel. A calculadora fica na raiz do mesmo endereço.
+
+Para ativar, uma única vez: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Na próxima execução, o endereço aparece em Settings → Pages e no resumo da execução, na aba Actions.
+
+> Em repositório público, a página também é pública. Se os resultados ainda não puderem ser divulgados, deixe o repositório privado. Em conta gratuita, porém, o GitHub Pages só funciona em repositórios públicos.
 
 **Para testar antes de ter os dados:** na aba **Actions**, clique em **Rodar análise → Run workflow**, marque *"Rodar com os dados SIMULADOS"* e confirme.
 
@@ -86,13 +114,15 @@ No Windows, se `rasterio` ou `geopandas` não instalarem com pip, use o Anaconda
 - **Tamanho da célula:** os resultados dependem da grade (0,25°) e de quantos focos fazem uma célula contar como "com fogo". Declare as duas escolhas no método; elas estão na aba `Parametros`.
 - **RF do INPE:** a versão atual usa **IMERG + GFS**, as mesmas fontes do índice proposto. Parte da semelhança entre os dois vem dos dados de entrada.
 - **FWI em ranking:** cada dia é comparado à climatologia do próprio pixel. As classes absolutas do GWIS foram calibradas para a Europa e podem ser incluídas como índice adicional no `config.yaml`.
+- **Poucas datas:** a concordância em poucas datas extremas tende a sair maior do que no período todo, porque nos extremos os índices concordam mais. Por isso as datas selecionadas servem só como ilustração.
 - **Datas da análise (c):** se não houver dias acima de P90 ou abaixo de P10 suficientes num mês, o programa escolhe os mais extremos disponíveis e marca **"atende ao percentil: não"**.
 
 ## Estrutura
 
 ```
 config.yaml                 configuração da análise com os dados reais
-rodar.py                    programa principal
+rodar.py                    programa principal (gera também resultados/index.html)
+app/                        calculadora on-line (index.html + worker.js, Pyodide)
 src/                        leitura dos dados, análises e saídas
 dados/                      dados de entrada (você adiciona)
 resultados/                 gerado automaticamente
